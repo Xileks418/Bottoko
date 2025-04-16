@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>BotToko Pricelist Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDsx4AFFZ9mXkuynUXZ6PJ7xrbh_kl_hec",
+      authDomain: "bottoko-ffd16.firebaseapp.com",
+      projectId: "bottoko-ffd16",
+      storageBucket: "bottoko-ffd16.appspot.com",
+      messagingSenderId: "174732913616",
+      appId: "1:174732913616:web:09435d2e508303f91627d5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window.firestore = db;
+  </script>
+
+  <script type="module">
+    import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    let packages = [];
+
+    window.renderEditableFields = function () {
+      const container = document.getElementById("editable-fields");
+      container.innerHTML = "";
+
+      packages.forEach((pkg, index) => {
+        const field = document.createElement("div");
+        field.className = "mb-2 flex gap-2";
+        field.innerHTML = `
+          <input type="text" class="p-2 border rounded w-1/2" placeholder="Nama Paket" value="${pkg.name}" 
+            oninput="packages[${index}].name = this.value">
+          <input type="number" class="p-2 border rounded w-1/4" placeholder="Harga" value="${pkg.price}" 
+            oninput="packages[${index}].price = parseInt(this.value)">
+          <button onclick="removePackage(${index})" class="text-red-500 hover:underline">Hapus</button>
+        `;
+        container.appendChild(field);
+      });
+    };
+
+    window.addPackage = function () {
+      packages.push({ name: "Paket Baru", price: 0 });
+      renderEditableFields();
+      updatePrices();
+    };
+
+    window.removePackage = function (index) {
+      packages.splice(index, 1);
+      renderEditableFields();
+      updatePrices();
+    };
+
+    window.updatePrices = function () {
+      const markup = parseInt(document.getElementById("markup").value);
+      const list = document.getElementById("price-list");
+      list.innerHTML = "";
+
+      packages.forEach(pkg => {
+        const li = document.createElement("li");
+        li.textContent = `${pkg.name} → Rp${(pkg.price + markup).toLocaleString()}`;
+        list.appendChild(li);
+      });
+    };
+
+    window.savePricelist = async function () {
+      try {
+        await setDoc(doc(firestore, "pricelist", "data"), {
+          markup: parseInt(document.getElementById("markup").value),
+          packages
+        });
+        alert("Berhasil disimpan ke Firebase!");
+      } catch (error) {
+        alert("Gagal menyimpan: " + error.message);
+      }
+    };
+
+    window.loadPricelist = async function () {
+      try {
+        const docSnap = await getDoc(doc(firestore, "pricelist", "data"));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          packages = data.packages || [];
+          document.getElementById("markup").value = data.markup || 0;
+          renderEditableFields();
+          updatePrices();
+        }
+      } catch (error) {
+        console.error("Gagal memuat:", error);
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", loadPricelist);
+  </script>
+</head>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-xl">
+    <h2 class="text-2xl font-bold mb-4">Edit Pricelist BotToko</h2>
+
+    <div class="mb-4">
+      <label class="block text-sm font-semibold">Markup (Keuntunganmu)</label>
+      <input id="markup" type="number" value="2000" class="w-full p-2 border rounded" oninput="updatePrices()">
+    </div>
+
+    <div class="mb-4">
+      <button onclick="document.getElementById('edit-section').classList.toggle('hidden')" 
+              class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+        ✏️ Edit Pricelist
+      </button>
+    </div>
+
+    <div id="edit-section" class="hidden mb-4">
+      <div id="editable-fields" class="mb-4"></div>
+      <button onclick="addPackage()" class="bg-green-600 text-white px-4 py-2 rounded w-full mb-2">
+        ➕ Tambah Paket
+      </button>
+      <button onclick="savePricelist()" class="bg-indigo-600 text-white px-4 py-2 rounded w-full">
+        💾 Simpan ke Firebase
+      </button>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="text-lg font-semibold mb-2">Hasil Pricelist:</h3>
+      <ul id="price-list" class="list-disc list-inside text-gray-800"></ul>
+    </div>
+  </div>
+</body>
+</html>
